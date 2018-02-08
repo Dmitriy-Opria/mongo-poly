@@ -220,7 +220,7 @@ func InsertPolygon(poly model.GeoKml) {
 
 }
 
-func FindPolygonInPolygon(poly model.Polygon) {
+func FindPolygonInPolygon(poly model.Polygon) (answer model.KmlAnswer) {
 
 	db, def := getDatabase()
 	defer def()
@@ -232,20 +232,28 @@ func FindPolygonInPolygon(poly model.Polygon) {
 			},
 		},
 	}
-	res := make([]model.GeoKml, 124)
+	intersectedFields := make([]model.GeoKml, 0, 16)
 
-	err := db.C("geoTile").Find(query).All(&res)
+	err := db.C("geoTile").Find(query).All(&intersectedFields)
+
 	if err != nil {
+		answer.Empty = true
 		fmt.Println(err)
-		fmt.Println("error")
 		return
 	} else {
-		fmt.Println(res)
+		answer.MD5 = make([]string, 0, len(intersectedFields))
+		if len(intersectedFields) == 0 {
+			answer.Empty = true
+			return
+		}
+		for _, field := range intersectedFields {
+			answer.MD5 = append(answer.MD5, field.MD5)
+		}
 	}
 	return
 
 }
-func FindPointInPolygon(point model.Point) {
+func FindPointInPolygon(point model.Point) (answer model.KmlAnswer) {
 
 	db, def := getDatabase()
 	defer def()
@@ -257,15 +265,22 @@ func FindPointInPolygon(point model.Point) {
 			},
 		},
 	}
-	res := make([]model.GeoKml, 124)
+	intersectedFields := make([]model.GeoKml, 124)
 
-	err := db.C("geoTile").Find(query).All(&res)
+	err := db.C("geoTile").Find(query).All(&intersectedFields)
 	if err != nil {
+		answer.Empty = true
 		fmt.Println(err)
-		fmt.Println("error")
 		return
 	} else {
-		fmt.Println(res)
+		answer.MD5 = make([]string, 0, len(intersectedFields))
+		if len(intersectedFields) == 0 {
+			answer.Empty = true
+			return
+		}
+		for _, field := range intersectedFields {
+			answer.MD5 = append(answer.MD5, field.MD5)
+		}
 	}
 	return
 

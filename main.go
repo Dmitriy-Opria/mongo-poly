@@ -1,12 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"github.com/go-chi/chi"
 	"mongo_kml/config"
 	"mongo_kml/db"
 	"mongo_kml/model"
-	//"gopkg.in/mgo.v2/bson"
-	"encoding/json"
-	"github.com/go-chi/chi"
+	"mongo_kml/x_token"
 	"net/http"
 )
 
@@ -72,6 +72,13 @@ func main() {
 }
 
 func kmlFinder(w http.ResponseWriter, r *http.Request) {
+
+	token := r.Header.Get("X-Token")
+
+	if !x_token.CheckValid(token) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	kmlField := new(model.KmlQuery)
 

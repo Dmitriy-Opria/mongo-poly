@@ -2,11 +2,11 @@ package db
 
 import (
 	"fmt"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"mongo_kml/config"
 	"mongo_kml/model"
-	"gopkg.in/mgo.v2"
 	"strings"
-	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -152,7 +152,7 @@ func geoTileIndexes() {
 	}
 
 	key = mgo.Index{
-		Key:  []string{"mgrsTile"},
+		Key: []string{"mgrsTile"},
 	}
 	if err = geoTile.EnsureIndex(key); err != nil {
 		fmt.Printf("geoTile(%q): %#v\n", strings.Join(key.Key, "_"), err)
@@ -205,15 +205,11 @@ func geoKmlIndexes() {
 	return
 }*/
 
-func InsertPolygon(poly model.MultiPoint) {
+func InsertPolygon(poly model.GeoKml) {
 
 	db, def := getDatabase()
 	defer def()
 
-	/*query := bson.M{
-		"name": "tested_multipolygon",
-		"geometry": poly,
-	}*/
 	fmt.Println("get_here")
 	err := db.C("geoTile").Insert(poly)
 	if err != nil {
@@ -224,19 +220,44 @@ func InsertPolygon(poly model.MultiPoint) {
 
 }
 
-func FindPointInPolygon(poly model.Polygon) {
+func FindPolygonInPolygon(poly model.Polygon) {
 
 	db, def := getDatabase()
 	defer def()
 
 	query := bson.M{
 		"geometry": bson.M{
-			"$geoWithin": bson.M{
+			"$geoIntersects": bson.M{
 				"$geometry": poly,
 			},
 		},
 	}
-	res := make([]string, 124)
+	res := make([]model.GeoKml, 124)
+
+	err := db.C("geoTile").Find(query).All(&res)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("error")
+		return
+	} else {
+		fmt.Println(res)
+	}
+	return
+
+}
+func FindPointInPolygon(point model.Point) {
+
+	db, def := getDatabase()
+	defer def()
+
+	query := bson.M{
+		"geometry": bson.M{
+			"$geoIntersects": bson.M{
+				"$geometry": point,
+			},
+		},
+	}
+	res := make([]model.GeoKml, 124)
 
 	err := db.C("geoTile").Find(query).All(&res)
 	if err != nil {

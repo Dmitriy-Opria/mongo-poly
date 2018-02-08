@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	key      = `V1fiCcYjH;0t}h4(Vpo7"bn1$^fw.0`
+	key      = `key_{key}_key`
 	userID   = "mongo_check"
 	actionID = "check_field"
 )

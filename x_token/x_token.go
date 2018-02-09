@@ -12,6 +12,7 @@ var (
 
 func GetToken() (token string) {
 	token = xsrftoken.Generate(key, userID, actionID)
+	
 	return
 }
 

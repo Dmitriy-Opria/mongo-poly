@@ -2,7 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/go-chi/chi"
+	//"github.com/go-chi/chi"
+	//"gopkg.in/mgo.v2/bson"
 	"mongo_kml/config"
 	"mongo_kml/db"
 	"mongo_kml/model"
@@ -10,14 +11,44 @@ import (
 	"net/http"
 )
 
+/*
 func main() {
 
-	r := chi.NewRouter()
+	point := model.Point{
+		Type:        "Point",
+		Coordinates: [2]float64{147.1398, -38.1016},
+	}
 
-	r.Post("/", kmlFinder)
-	http.ListenAndServe(":3000", r)
+	conf := config.Get()
+	db.MongoInit(conf.Mongodb)
 
-	westLon, eastLon, northLat, southLat := 10.0, 20.0, 10.0, 20.0
+	db.FindNearestStation(point)
+}
+*/
+
+/*
+func main() {
+	fileName := "./stations_codes.csv"
+	meteolist := db.ReadCSV(fileName)
+
+
+	conf := config.Get()
+	db.MongoInit(conf.Mongodb)
+
+
+	if err := db.InsertMeteo(meteolist); err != nil {
+		fmt.Printf("Can`t insert meteo error: %s", err.Error())
+	}
+}*/
+
+func main() {
+	/*
+		r := chi.NewRouter()
+
+		r.Post("/", kmlFinder)
+		http.ListenAndServe(":3000", r)*/
+
+	//westLon, eastLon, northLat, southLat := 147.1397, 147.14, -38.1013, -38.1019
 
 	//middleLon := westLon + (eastLon-westLon)/2
 	//middleLat := southLat - (southLat-northLat)/2
@@ -37,7 +68,7 @@ func main() {
 		},
 	}
 	geoKml := model.GeoKml{
-		ID:  bson.ObjectId("Just_test_01"),
+		ID:       bson.ObjectId("Just_test_01"),
 		MD5:      "test",
 		Size:     0,
 		Geometry: poly,
@@ -48,27 +79,20 @@ func main() {
 
 	//db.InsertPolygon(geoKml)
 
+	db.SetMeteoCode()
+
 	/*point := model.Point{
 		Type:        "Point",
 		Coordinates: [2]float64{middleLon, middleLat},
 	}*/
+	//db.FindNearestStation(point)
+
 	//db.FindPointInPolygon(point)
 
-	westLon, eastLon, northLat, southLat = 12.0, 18.0, 12.0, 18.0
+	/*	westLon, eastLon, northLat, southLat = 12.0, 18.0, 12.0, 18.0
 
-	poly := model.Polygon{
-		Type: "Polygon",
-		Coordinates: [][][2]float64{
-			{
-				{westLon, northLat},
-				{eastLon, northLat},
-				{eastLon, southLat},
-				{westLon, southLat},
-				{westLon, northLat},
-			},
-		},
-	}
-	db.FindPolygonInPolygon(poly)
+
+		db.FindPolygonInPolygon(poly)*/
 }
 
 func kmlFinder(w http.ResponseWriter, r *http.Request) {

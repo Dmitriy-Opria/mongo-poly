@@ -54,6 +54,7 @@ func initMgoIndexes() {
 	geoTileIndexes()
 	geoKmlIndexes()
 	tasksIndexes()
+	meteoIndex()
 }
 
 func tasksIndexes() {
@@ -187,6 +188,24 @@ func geoKmlIndexes() {
 	}
 }
 
+func meteoIndex() {
+	db, def := getDatabase()
+	defer def()
+
+	var err error
+	var key mgo.Index
+
+	meteoStations := db.C("meteoStations")
+
+	key = mgo.Index{
+		Key:  []string{"$2dsphere:point"},
+		Bits: 26,
+	}
+	if err = meteoStations.EnsureIndex(key); err != nil {
+		fmt.Printf("meteoStations(%q): %#v\n", strings.Join(key.Key, "_"), err)
+	}
+}
+
 /*func FindTileByGeometry(geometry model.Polygon) (tiles []model.GeoTile) {
 	db, def := getDatabase()
 	defer def()
@@ -210,7 +229,6 @@ func InsertPolygon(poly model.GeoKml) {
 	db, def := getDatabase()
 	defer def()
 
-	fmt.Println("get_here")
 	err := db.C("geoTile").Insert(poly)
 	if err != nil {
 		fmt.Println(err)

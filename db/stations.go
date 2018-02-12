@@ -167,5 +167,4 @@ func SetMeteoCode() {
 		}
 
 	}
-	fmt.Println(results)
 }

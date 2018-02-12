@@ -229,6 +229,12 @@ func InsertPolygon(poly model.GeoKml) {
 	db, def := getDatabase()
 	defer def()
 
+	if centerPoint, err := poly.Geometry.Center(); err != nil {
+
+		meteoStation := FindNearestStation(centerPoint)
+		poly.MeteoCodeID = meteoStation.CodeID
+	}
+
 	err := db.C("geoTile").Insert(poly)
 	if err != nil {
 		fmt.Println(err)

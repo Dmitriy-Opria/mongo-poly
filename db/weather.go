@@ -41,11 +41,7 @@ func GetWeather(year, month int) (err error) {
 
 	for _, meteo := range meteoList {
 
-		requestUrl := domainName + yearStr + monthStr + textField + meteo.CodeID + pointPart + yearStr + monthStr + csvPart
-
-		fmt.Println(requestUrl)
-
-		path := meteo.CodeID + pointPart + yearStr + monthStr + csvPart
+		requestUrl, path := getPath(yearStr, monthStr, meteo.CodeID)
 
 		err := DownloadFile(path, requestUrl)
 
@@ -54,6 +50,14 @@ func GetWeather(year, month int) (err error) {
 		}
 		break
 	}
+
+	return
+}
+
+func getPath(yearStr, monthStr, codeID string) (requestUrl, filePath string) {
+
+	requestUrl = domainName + yearStr + monthStr + textField + codeID + pointPart + yearStr + monthStr + csvPart
+	filePath = codeID + pointPart + yearStr + monthStr + csvPart
 
 	return
 }
@@ -93,7 +97,7 @@ func DownloadFile(filepath string, url string) error {
 	return nil
 }
 
-func ReadWeaterFile(filepath string) (weather model.MonthWeather) {
+func ReadWeatherFile(filepath string) (weather model.MonthWeather) {
 	file, err := os.OpenFile(filepath, os.O_RDONLY, 0644)
 
 	if err != nil {
@@ -160,20 +164,56 @@ func ReadWeaterFile(filepath string) (weather model.MonthWeather) {
 		dayWeather.WindDirection = record[7]
 		dayWeather.WindSpeed = record[8]
 		dayWeather.WindMaxGustTime = record[9]
-		dayWeather.NineAmTemperature = utils.ToFloat64(record[10])
-		dayWeather.NineAmHumidity = utils.ToInt(record[11])
-		dayWeather.NineAmCloud = record[12]
-		dayWeather.NineAmWindDirection = record[13]
-		dayWeather.NineAmWindSpeed = record[14]
-		dayWeather.NineAmMslPressure = record[15]
-		dayWeather.TreePmTemperature = utils.ToFloat64(record[16])
-		dayWeather.TreePmHumidity = utils.ToInt(record[17])
-		dayWeather.TreePmCloud = record[18]
-		dayWeather.TreePmWindDirection = record[19]
-		dayWeather.TreePmWindSpeed = record[20]
-		dayWeather.TreePmMslPressure = record[21]
+		dayWeather.NineAM.Temperature = utils.ToFloat64(record[10])
+		dayWeather.NineAM.Humidity = utils.ToInt(record[11])
+		dayWeather.NineAM.Cloud = record[12]
+		dayWeather.NineAM.WindDirection = record[13]
+		dayWeather.NineAM.WindSpeed = record[14]
+		dayWeather.NineAM.MslPressure = record[15]
+		dayWeather.TreePM.Temperature = utils.ToFloat64(record[16])
+		dayWeather.TreePM.Humidity = utils.ToInt(record[17])
+		dayWeather.TreePM.Cloud = record[18]
+		dayWeather.TreePM.WindDirection = record[19]
+		dayWeather.TreePM.WindSpeed = record[20]
+		dayWeather.TreePM.MslPressure = record[21]
 
 		weather.Days = append(weather.Days, dayWeather)
 	}
 	return
+}
+
+func SaveRangeWeather(monthList []model.Month) {
+
+	meteoList := GetMeteoList()
+
+	for _, meteo := range meteoList {
+
+		for _, month := range monthList {
+
+			yearStr := strconv.Itoa(month.Year)
+			monthStr := strconv.Itoa(month.Month)
+
+			requestUrl, filePath := getPath(yearStr, monthStr, meteo.CodeID)
+
+			DownloadFile(filePath, requestUrl)
+
+			monthWeather := ReadWeatherFile(filePath)
+
+			insertWeather(monthWeather)
+		}
+	}
+}
+
+func insertWeather(weather model.MonthWeather) {
+
+	db, def := getDatabase()
+	defer def()
+
+	err := db.C("weather").Insert(weather)
+
+	if err != nil {
+
+		fmt.Println(err)
+		return
+	}
 }

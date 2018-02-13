@@ -2,34 +2,40 @@ package model
 
 import "time"
 
-type MonthWeather struct {
-	Description   string
-	PreparingInfo string
-	CopyRight     string
-	Observation   string
-	Days          []DayWeather
-}
+type (
+	MonthWeather struct {
+		Description   string       `bson:"description"`
+		PreparingInfo string       `bson:"preparingInfo"`
+		CopyRight     string       `bson:"copyRight"`
+		Observation   string       `bson:"observation"`
+		Days          []DayWeather `bson:"days"`
+	}
 
-type DayWeather struct {
-	Date                time.Time
-	MinTemperature      float64
-	MaxTemperature      float64
-	RainFall            float64
-	Evaporation         string
-	SunShine            string
-	WindDirection       string
-	WindSpeed           string
-	WindMaxGustTime     string
-	NineAmTemperature   float64
-	NineAmHumidity      int
-	NineAmCloud         string
-	NineAmWindDirection string
-	NineAmWindSpeed     string
-	NineAmMslPressure   string
-	TreePmTemperature   float64
-	TreePmHumidity      int
-	TreePmCloud         string
-	TreePmWindDirection string
-	TreePmWindSpeed     string
-	TreePmMslPressure   string
-}
+	DayWeather struct {
+		Date            time.Time `bson:"dayTime"`
+		MinTemperature  float64   `bson:"minTemperature"`
+		MaxTemperature  float64   `bson:"maxTemperature"`
+		RainFall        float64   `bson:"rainFall"`
+		Evaporation     string    `bson:"evaporation"`
+		SunShine        string    `bson:"sunShine"`
+		WindDirection   string    `bson:"windDirection"`
+		WindSpeed       string    `bson:"windSpeed"`
+		WindMaxGustTime string    `bson:"windMaxGustTime"`
+		NineAM          Period    `bson:"nineAM"`
+		TreePM          Period    `bson:"treePM"`
+	}
+
+	Period struct {
+		Temperature   float64 `bson:"temperature"`
+		Humidity      int     `bson:"humidity"`
+		Cloud         string  `bson:"cloud"`
+		WindDirection string  `bson:"windDirection"`
+		WindSpeed     string  `bson:"windSpeed"`
+		MslPressure   string  `bson:"mslPressure"`
+	}
+
+	Month struct {
+		Month int
+		Year  int
+	}
+)

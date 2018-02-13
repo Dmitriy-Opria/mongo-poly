@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	//"github.com/go-chi/chi"
 	//"gopkg.in/mgo.v2/bson"
+	"fmt"
 	"mongo_kml/config"
 	"mongo_kml/db"
 	"mongo_kml/model"
@@ -79,7 +80,19 @@ func main() {
 
 	//db.InsertPolygon(geoKml)
 
-	db.SetMeteoCode()
+	//db.SetMeteoCode()
+
+	fileInfo := db.ReadWeaterFile("./IDCJDW3001.201712.csv")
+
+	for _, v := range fileInfo.Days {
+
+		fmt.Printf("%#v\n", v)
+	}
+
+	/*if err := db.GetWeather(2017, 12); err != nil {
+
+		fmt.Println(err.Error())
+	}*/
 
 	/*point := model.Point{
 		Type:        "Point",

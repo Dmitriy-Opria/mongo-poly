@@ -92,8 +92,6 @@ func InsertMeteo(meteoList []model.MeteoUnit) (err error) {
 
 func FindNearestStation(point model.Point) (meteo *model.MeteoUnit) {
 
-	fmt.Println("get here")
-
 	db, def := getDatabase()
 	defer def()
 

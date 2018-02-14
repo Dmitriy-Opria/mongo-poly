@@ -5,7 +5,7 @@ import "time"
 type (
 	MonthWeather struct {
 		Month         Month        `bson:"month"`
-		CodeID        string		`bson:"codeID"`
+		CodeID        string       `bson:"codeID"`
 		Description   string       `bson:"description"`
 		PreparingInfo string       `bson:"preparingInfo"`
 		CopyRight     string       `bson:"copyRight"`

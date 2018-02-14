@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/iizotop/baseweb/utils"
+	"gopkg.in/mgo.v2/bson"
 	"io"
 	"mongo_kml/model"
 	"net/http"
@@ -22,7 +23,7 @@ var (
 
 	invalidYearError  = errors.New("invalid year value")
 	invalidMonthError = errors.New("invalid month value")
-	badStatusCode = errors.New("bad status code")
+	badStatusCode     = errors.New("bad status code")
 )
 
 func GetWeather(year, month int) (err error) {
@@ -57,7 +58,7 @@ func GetWeather(year, month int) (err error) {
 
 func getPath(yearStr, monthStr, codeID string) (requestUrl, filePath string) {
 
-	if len(monthStr) == 1{
+	if len(monthStr) == 1 {
 		monthStr = "0" + monthStr
 	}
 
@@ -203,28 +204,36 @@ func SaveRangeWeather(monthList []model.Month) {
 
 		for _, month := range monthList {
 
-			yearStr := strconv.Itoa(month.Year)
-			monthStr := strconv.Itoa(month.Month)
+			if !isSavedWeather(meteo.CodeID, month) {
 
-			requestUrl, filePath := getPath(yearStr, monthStr, meteo.CodeID)
+				yearStr := strconv.Itoa(month.Year)
+				monthStr := strconv.Itoa(month.Month)
 
-			if err := DownloadFile(filePath, requestUrl); err == nil {
+				requestUrl, filePath := getPath(yearStr, monthStr, meteo.CodeID)
 
-				monthWeather := ReadWeatherFile(filePath)
+				if err := DownloadFile(filePath, requestUrl); err == nil {
 
-				monthWeather.Month = month
+					monthWeather := ReadWeatherFile(filePath)
 
-				monthWeather.CodeID = meteo.CodeID
+					monthWeather.Month = month
 
-				insertWeather(monthWeather)
+					monthWeather.CodeID = meteo.CodeID
+
+					if ok := insertWeather(monthWeather); ok {
+						if err := os.Remove(filePath); err != nil {
+							fmt.Println(err)
+						}
+					}
+				}
+
+				time.Sleep(3 * time.Second)
 			}
 
-			time.Sleep(3 * time.Second)
 		}
 	}
 }
 
-func insertWeather(weather model.MonthWeather) {
+func insertWeather(weather model.MonthWeather) (ok bool) {
 
 	db, def := getDatabase()
 	defer def()
@@ -237,4 +246,62 @@ func insertWeather(weather model.MonthWeather) {
 		return
 	}
 	fmt.Printf("Inserted year: %d, month: %d\n", weather.Month.Year, weather.Month.Month)
+
+	return true
+}
+
+func isSavedWeather(codeID string, month model.Month) bool {
+
+	db, def := getDatabase()
+	defer def()
+
+	query := bson.M{
+		"codeID": codeID,
+		"month": bson.M{
+			"monthIndex": month.Month,
+			"yearIndex":  month.Year,
+		},
+	}
+	n, err := db.C("weather").Find(query).Count()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	} else {
+		if n > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func FindFieldWeather(md5hash string, year, month int) (monthWeather *model.MonthWeather) {
+
+	db, def := getDatabase()
+	defer def()
+
+	var result model.GeoKml
+
+	query := bson.M{
+		"md5": md5hash,
+	}
+
+	if err := db.C("geoKml").Find(query).One(&result); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	weatherQuery := bson.M{
+		"codeID": result.MeteoCodeID,
+		"month": bson.M{
+			"monthIndex": month,
+			"yearIndex":  year,
+		},
+	}
+
+	if err := db.C("weather").Find(weatherQuery).One(&monthWeather); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	return
 }

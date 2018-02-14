@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	//"gopkg.in/mgo.v2/bson"
+	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/iizotop/baseweb/utils"
 	"mongo_kml/config"
@@ -12,15 +13,21 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"fmt"
 )
 
 func main() {
 	r := chi.NewRouter()
 
-
 	conf := config.Get()
 	db.MongoInit(conf.Mongodb)
+
+	monthWeather := db.FindFieldWeather("test", 2017, 1)
+
+	for _, day := range monthWeather.Days {
+
+		fmt.Printf("%#v\n", day)
+	}
+
 	r.Post("/", kmlFinder)
 	r.Get("/meteosave", meteoSaver)
 	http.ListenAndServe(":3000", r)

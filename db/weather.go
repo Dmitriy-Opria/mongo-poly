@@ -57,6 +57,10 @@ func GetWeather(year, month int) (err error) {
 
 func getPath(yearStr, monthStr, codeID string) (requestUrl, filePath string) {
 
+	if len(monthStr) == 1{
+		monthStr = "0" + monthStr
+	}
+
 	requestUrl = domainName + yearStr + monthStr + textField + codeID + pointPart + yearStr + monthStr + csvPart
 	filePath = codeID + pointPart + yearStr + monthStr + csvPart
 
@@ -79,6 +83,9 @@ func GetMeteoList() (meteo []model.MeteoUnit) {
 func DownloadFile(filepath string, url string) error {
 
 	resp, err := http.Get(url)
+
+	fmt.Println(url)
+	fmt.Println(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return badStatusCode
@@ -212,7 +219,7 @@ func SaveRangeWeather(monthList []model.Month) {
 				insertWeather(monthWeather)
 			}
 
-			time.Sleep(10 * time.Second)
+			time.Sleep(3 * time.Second)
 		}
 	}
 }

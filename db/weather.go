@@ -22,6 +22,7 @@ var (
 
 	invalidYearError  = errors.New("invalid year value")
 	invalidMonthError = errors.New("invalid month value")
+	badStatusCode = errors.New("bad status code")
 )
 
 func GetWeather(year, month int) (err error) {
@@ -77,23 +78,28 @@ func GetMeteoList() (meteo []model.MeteoUnit) {
 
 func DownloadFile(filepath string, url string) error {
 
+	resp, err := http.Get(url)
+
+	if resp.StatusCode != http.StatusOK {
+		return badStatusCode
+	}
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
 	out, err := os.Create(filepath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("Downloaded:", filepath)
 	return nil
 }
 
@@ -195,11 +201,18 @@ func SaveRangeWeather(monthList []model.Month) {
 
 			requestUrl, filePath := getPath(yearStr, monthStr, meteo.CodeID)
 
-			DownloadFile(filePath, requestUrl)
+			if err := DownloadFile(filePath, requestUrl); err == nil {
 
-			monthWeather := ReadWeatherFile(filePath)
+				monthWeather := ReadWeatherFile(filePath)
 
-			insertWeather(monthWeather)
+				monthWeather.Month = month
+
+				monthWeather.CodeID = meteo.CodeID
+
+				insertWeather(monthWeather)
+			}
+
+			time.Sleep(10 * time.Second)
 		}
 	}
 }
@@ -216,4 +229,5 @@ func insertWeather(weather model.MonthWeather) {
 		fmt.Println(err)
 		return
 	}
+	fmt.Printf("Inserted year: %d, month: %d\n", weather.Month.Year, weather.Month.Month)
 }

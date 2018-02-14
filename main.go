@@ -12,11 +12,15 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"fmt"
 )
 
 func main() {
 	r := chi.NewRouter()
 
+
+	conf := config.Get()
+	db.MongoInit(conf.Mongodb)
 	r.Post("/", kmlFinder)
 	r.Get("/meteosave", meteoSaver)
 	http.ListenAndServe(":3000", r)
@@ -46,9 +50,6 @@ func main() {
 		Size:     0,
 		Geometry: poly,
 	}*/
-
-	conf := config.Get()
-	db.MongoInit(conf.Mongodb)
 
 	//db.InsertPolygon(geoKml)
 
@@ -180,6 +181,8 @@ func meteoSaver(w http.ResponseWriter, r *http.Request) {
 	}
 
 	monthList := getMonthList(frYear, frMonth, toYear, toMonth)
+
+	fmt.Println(monthList)
 
 	db.SaveRangeWeather(monthList)
 }

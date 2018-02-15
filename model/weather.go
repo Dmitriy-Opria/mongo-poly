@@ -10,6 +10,7 @@ type (
 		PreparingInfo string       `bson:"preparingInfo"`
 		CopyRight     string       `bson:"copyRight"`
 		Observation   string       `bson:"observation"`
+		NotAll        bool         `bson:"notAll"`
 		Days          []DayWeather `bson:"days"`
 	}
 

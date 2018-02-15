@@ -219,6 +219,14 @@ func SaveRangeWeather(monthList []model.Month) {
 
 					monthWeather.CodeID = meteo.CodeID
 
+					tm := time.Now()
+
+					currentMonth := tm.Month()
+
+					if month.Month == int(currentMonth) {
+						monthWeather.NotAll = true
+					}
+
 					if ok := insertWeather(monthWeather); ok {
 						if err := os.Remove(filePath); err != nil {
 							fmt.Println(err)
@@ -256,10 +264,21 @@ func isSavedWeather(codeID string, month model.Month) bool {
 	defer def()
 
 	query := bson.M{
-		"codeID": codeID,
-		"month": bson.M{
-			"monthIndex": month.Month,
-			"yearIndex":  month.Year,
+		"$or": []bson.M{
+			{"codeID": codeID,
+				"notAll": bson.M{"$exists": false},
+				"month": bson.M{
+					"monthIndex": month.Month,
+					"yearIndex":  month.Year,
+				},
+			},
+			{"codeID": codeID,
+				"notAll": false,
+				"month": bson.M{
+					"monthIndex": month.Month,
+					"yearIndex":  month.Year,
+				},
+			},
 		},
 	}
 	n, err := db.C("weather").Find(query).Count()

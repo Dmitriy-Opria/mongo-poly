@@ -7,7 +7,7 @@ import (
 	"github.com/iizotop/baseweb/utils"
 	"gopkg.in/mgo.v2/bson"
 	"io"
-	"mongo_kml/model"
+	"mongo-poly/model"
 	"net/http"
 	"os"
 	"strconv"
@@ -24,6 +24,7 @@ var (
 	invalidYearError  = errors.New("invalid year value")
 	invalidMonthError = errors.New("invalid month value")
 	badStatusCode     = errors.New("bad status code")
+	emptyWeather      = errors.New("empty field weather")
 )
 
 func GetWeather(year, month int) (err error) {
@@ -169,7 +170,7 @@ func ReadWeatherFile(filepath string) (weather model.MonthWeather) {
 
 		tm, _ := time.Parse(layout, record[1])
 
-		dayWeather.Date = tm
+		dayWeather.Date = tm.UTC()
 		dayWeather.MinTemperature = utils.ToFloat64(record[2])
 		dayWeather.MaxTemperature = utils.ToFloat64(record[3])
 		dayWeather.RainFall = utils.ToFloat64(record[4])
@@ -323,4 +324,65 @@ func FindFieldWeather(md5hash string, year, month int) (monthWeather *model.Mont
 		return
 	}
 	return
+}
+
+func GetDayDeg(md5hash string, day time.Time) (dayDeg float64, err error) {
+
+	tm := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
+
+	db, def := getDatabase()
+	defer def()
+
+	var result model.GeoKml
+
+	query := bson.M{
+		"md5": md5hash,
+	}
+
+	if err = db.C("geoKml").Find(query).One(&result); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	monthWeather := model.MonthWeather{}
+
+	weatherQuery := bson.M{
+		"codeID": result.MeteoCodeID,
+		"month": bson.M{
+			"monthIndex": int(day.Month()),
+			"yearIndex":  day.Year(),
+		},
+	}
+
+	daySelector := bson.M{
+		"days": bson.M{
+			"$elemMatch": bson.M{
+				"dayTime": tm,
+			},
+		},
+	}
+
+	if err = db.C("weather").Find(weatherQuery).Select(daySelector).One(&monthWeather); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	if len(monthWeather.Days) > 0 {
+
+		dayWeather := monthWeather.Days[0]
+
+		if dayWeather.MinTemperature < 12 {
+			dayWeather.MinTemperature = 12
+		}
+
+		dayDeg = (dayWeather.MinTemperature - 12 + dayWeather.MaxTemperature - 12) / 2
+
+		if dayDeg < 0 {
+			dayDeg = 0
+		}
+
+		return
+	}
+
+	return 0, emptyWeather
 }

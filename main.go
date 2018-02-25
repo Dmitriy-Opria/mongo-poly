@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/iizotop/baseweb/utils"
-	"mongo_kml/config"
-	"mongo_kml/db"
-	"mongo_kml/model"
-	"mongo_kml/x_token"
+	"mongo-poly/config"
+	"mongo-poly/db"
+	"mongo-poly/model"
+	"mongo-poly/x_token"
 	"net/http"
 	"strings"
 	"time"
@@ -21,11 +21,30 @@ func main() {
 	conf := config.Get()
 	db.MongoInit(conf.Mongodb)
 
-	monthWeather := db.FindFieldWeather("test", 2017, 1)
+	/*monthWeather := db.FindFieldWeather("test", 2017, 1)
+
+	fmt.Println(monthWeather)
 
 	for _, day := range monthWeather.Days {
 
 		fmt.Printf("%#v\n", day)
+		fmt.Println(day.Date)
+	}*/
+
+	location, err := time.LoadLocation("EET")
+
+	if err != nil {
+		fmt.Println(err.Error())
+		fmt.Println("get here")
+	}
+
+	day := time.Date(2017, 2, 2, 0, 0, 0, 0, location)
+
+	dayWeather, err := db.GetDayDeg("test", day)
+
+	if err == nil {
+
+		fmt.Println(dayWeather)
 	}
 
 	r.Post("/", kmlFinder)

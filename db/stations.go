@@ -6,7 +6,7 @@ import (
 	"github.com/iizotop/baseweb/utils"
 	"gopkg.in/mgo.v2/bson"
 	"io"
-	"mongo_kml/model"
+	"mongo-poly/model"
 	"os"
 )
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"mongo_kml/config"
-	"mongo_kml/model"
+	"mongo-poly/config"
+	"mongo-poly/model"
 	"strings"
 )
 

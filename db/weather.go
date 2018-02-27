@@ -166,11 +166,7 @@ func ReadWeatherFile(filepath string) (weather model.MonthWeather) {
 
 		dayWeather := model.DayWeather{}
 
-		layout := "2006-01-2"
-
-		tm, _ := time.Parse(layout, record[1])
-
-		dayWeather.Date = tm.UTC()
+		dayWeather.DayIndex = record[1]
 		dayWeather.MinTemperature = utils.ToFloat64(record[2])
 		dayWeather.MaxTemperature = utils.ToFloat64(record[3])
 		dayWeather.RainFall = utils.ToFloat64(record[4])
@@ -232,6 +228,8 @@ func SaveRangeWeather(monthList []model.Month) {
 						if err := os.Remove(filePath); err != nil {
 							fmt.Println(err)
 						}
+					} else {
+						removeNotAll(meteo.CodeID, month)
 					}
 				}
 
@@ -295,40 +293,161 @@ func isSavedWeather(codeID string, month model.Month) bool {
 	return false
 }
 
+func removeNotAll(codeID string, month model.Month) {
+
+	db, def := getDatabase()
+	defer def()
+
+	notAllQuery := bson.M{
+		"codeID": codeID,
+		"notAll": true,
+		"month": bson.M{
+			"monthIndex": month.Month,
+			"yearIndex":  month.Year,
+		},
+	}
+
+	db.C("weather").RemoveAll(notAllQuery)
+}
+
 func FindFieldWeather(md5hash string, year, month int) (monthWeather *model.MonthWeather) {
 
 	db, def := getDatabase()
 	defer def()
 
-	var result model.GeoKml
+	codeID, err := GetCodeIDByMD5(md5hash)
 
-	query := bson.M{
-		"md5": md5hash,
+	if err == nil {
+		weatherQuery := bson.M{
+			"codeID": codeID,
+			"month": bson.M{
+				"monthIndex": month,
+				"yearIndex":  year,
+			},
+		}
+
+		if err := db.C("weather").Find(weatherQuery).One(&monthWeather); err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 	}
 
-	if err := db.C("geoKml").Find(query).One(&result); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	weatherQuery := bson.M{
-		"codeID": result.MeteoCodeID,
-		"month": bson.M{
-			"monthIndex": month,
-			"yearIndex":  year,
-		},
-	}
-
-	if err := db.C("weather").Find(weatherQuery).One(&monthWeather); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
 	return
 }
 
 func GetDayDeg(md5hash string, day time.Time) (dayDeg float64, err error) {
 
-	tm := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
+	dayStr := day.Format("2006-01-2")
+
+	db, def := getDatabase()
+	defer def()
+
+	codeID, err := GetCodeIDByMD5(md5hash)
+
+	if err == nil {
+
+		monthWeather := model.MonthWeather{}
+
+		weatherQuery := bson.M{
+			"codeID": codeID,
+			"month": bson.M{
+				"monthIndex": int(day.Month()),
+				"yearIndex":  day.Year(),
+			},
+		}
+
+		daySelector := bson.M{
+			"days": bson.M{
+				"$elemMatch": bson.M{
+					"day": dayStr,
+				},
+			},
+		}
+
+		if err = db.C("weather").Find(weatherQuery).Select(daySelector).One(&monthWeather); err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		if len(monthWeather.Days) > 0 {
+
+			dayWeather := monthWeather.Days[0]
+
+			if dayWeather.MinTemperature < 12 {
+				dayWeather.MinTemperature = 12
+			}
+
+			dayDeg = (dayWeather.MinTemperature - 12 + dayWeather.MaxTemperature - 12) / 2
+
+			if dayDeg < 0 {
+				dayDeg = 0
+			}
+
+			return
+		}
+	}
+
+	return 0, emptyWeather
+}
+
+
+func GetMonthDayDegree(codeID string, monthList []model.Month) ([]model.DayDegree) {
+
+	db, def := getDatabase()
+	defer def()
+
+	var weatherList = make([]model.MonthWeather, 0, 8)
+
+	for _, month := range monthList {
+
+		monthWeather := model.MonthWeather{}
+
+		weatherQuery := bson.M{
+			"codeID": codeID,
+			"month": bson.M{
+				"monthIndex": month.Month,
+				"yearIndex":  month.Year,
+			},
+		}
+
+		if err := db.C("weather").Find(weatherQuery).One(&monthWeather); err == nil {
+
+			weatherList = append(weatherList, monthWeather)
+
+		}
+	}
+
+	var dayDegList = make([]model.DayDegree, 0, 31*len(weatherList))
+
+	for _, month := range weatherList {
+
+		for _,  dayWeather := range month.Days {
+
+			if dayWeather.MinTemperature < 12 {
+				dayWeather.MinTemperature = 12
+			}
+
+			dayDeg := (dayWeather.MinTemperature - 12 + dayWeather.MaxTemperature - 12) / 2
+
+			if dayDeg < 0 {
+				dayDeg = 0
+			}
+
+			deg := model.DayDegree{
+				Date: dayWeather.DayIndex,
+				DayDegree: dayDeg,
+			}
+
+			dayDegList = append(dayDegList, deg)
+		}
+	}
+
+	return dayDegList
+}
+
+func GetCodeIDByMD5(md5hash string) (codeID string, err error) {
+
+	return "IDCJDW3001", nil
 
 	db, def := getDatabase()
 	defer def()
@@ -344,45 +463,6 @@ func GetDayDeg(md5hash string, day time.Time) (dayDeg float64, err error) {
 		return
 	}
 
-	monthWeather := model.MonthWeather{}
+	return result.MeteoCodeID, nil
 
-	weatherQuery := bson.M{
-		"codeID": result.MeteoCodeID,
-		"month": bson.M{
-			"monthIndex": int(day.Month()),
-			"yearIndex":  day.Year(),
-		},
-	}
-
-	daySelector := bson.M{
-		"days": bson.M{
-			"$elemMatch": bson.M{
-				"dayTime": tm,
-			},
-		},
-	}
-
-	if err = db.C("weather").Find(weatherQuery).Select(daySelector).One(&monthWeather); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	if len(monthWeather.Days) > 0 {
-
-		dayWeather := monthWeather.Days[0]
-
-		if dayWeather.MinTemperature < 12 {
-			dayWeather.MinTemperature = 12
-		}
-
-		dayDeg = (dayWeather.MinTemperature - 12 + dayWeather.MaxTemperature - 12) / 2
-
-		if dayDeg < 0 {
-			dayDeg = 0
-		}
-
-		return
-	}
-
-	return 0, emptyWeather
 }

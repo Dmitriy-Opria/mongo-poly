@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	//"gopkg.in/mgo.v2/bson"
-	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/iizotop/baseweb/utils"
 	"mongo-poly/config"
@@ -31,24 +30,24 @@ func main() {
 		fmt.Println(day.Date)
 	}*/
 
-	location, err := time.LoadLocation("EET")
+	/*from := time.Date(2016, 1,1,0,0,0,0, time.UTC)
+	to := time.Date(2018, 5,1,0,0,0, 0,time.UTC)
+
+	weatherList, err := db.GetPeriodWeather("test", from, to)
+
+	db.WriteCSVWeather(weatherList)
 
 	if err != nil {
 		fmt.Println(err.Error())
-		fmt.Println("get here")
-	}
-
-	day := time.Date(2017, 2, 2, 0, 0, 0, 0, location)
-
-	dayWeather, err := db.GetDayDeg("test", day)
-
-	if err == nil {
-
-		fmt.Println(dayWeather)
-	}
+		os.Exit(1)
+	} else {
+		fmt.Println(weatherList)
+	}*/
 
 	r.Post("/", kmlFinder)
 	r.Get("/meteosave", meteoSaver)
+	r.Get("/period", periodWeather)
+	r.Get("/daydeg", dayDegree)
 	http.ListenAndServe(":3000", r)
 
 	//westLon, eastLon, northLat, southLat := 147.1397, 147.14, -38.1013, -38.1019
@@ -170,16 +169,23 @@ func meteoSaver(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
 
-	if from == "" || to == "" {
+	monthList := getMonthList(from, to)
+
+	if len(monthList) < 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	db.SaveRangeWeather(monthList)
+}
+
+func getMonthList(from, to string) (monthList []model.Month) {
+
 
 	fr := strings.Split(from, "-")
 	t := strings.Split(to, "-")
 
 	if len(fr) < 2 || len(t) < 2 {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -190,36 +196,24 @@ func meteoSaver(w http.ResponseWriter, r *http.Request) {
 	toMonth := utils.ToInt(t[1])
 
 	if frYear == 0 || frMonth == 0 || toYear == 0 || toMonth == 0 {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if toYear-frYear < 0 {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if toYear-frYear == 0 {
 		if toMonth-frMonth < 0 {
-			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 	}
 
-	monthList := getMonthList(frYear, frMonth, toYear, toMonth)
-
-	fmt.Println(monthList)
-
-	db.SaveRangeWeather(monthList)
-}
-
-func getMonthList(fromYear, fromMonth, toYear, toMonth int) (monthList []model.Month) {
-
 	yearMin := time.Now().Year() - 2
 	yearMax := time.Now().Year()
 
-	if fromYear < yearMin {
-		fromYear = yearMin
+	if frYear < yearMin {
+		frYear = yearMin
 	}
 
 	if toYear > yearMax {
@@ -227,9 +221,9 @@ func getMonthList(fromYear, fromMonth, toYear, toMonth int) (monthList []model.M
 		toMonth = int(time.Now().Month())
 	}
 
-	switch toYear - fromYear {
+	switch toYear - frYear {
 	case 0:
-		for monthIndex := fromMonth; monthIndex <= toMonth; monthIndex++ {
+		for monthIndex := frMonth; monthIndex <= toMonth; monthIndex++ {
 
 			month := model.Month{
 				Year:  toYear,
@@ -239,10 +233,10 @@ func getMonthList(fromYear, fromMonth, toYear, toMonth int) (monthList []model.M
 		}
 		return
 	case 1:
-		for monthIndex := fromMonth; monthIndex <= 12; monthIndex++ {
+		for monthIndex := frMonth; monthIndex <= 12; monthIndex++ {
 
 			month := model.Month{
-				Year:  fromYear,
+				Year:  frYear,
 				Month: monthIndex,
 			}
 			monthList = append(monthList, month)
@@ -257,10 +251,10 @@ func getMonthList(fromYear, fromMonth, toYear, toMonth int) (monthList []model.M
 		}
 		return
 	case 2:
-		for monthIndex := fromMonth; monthIndex <= 12; monthIndex++ {
+		for monthIndex := frMonth; monthIndex <= 12; monthIndex++ {
 
 			month := model.Month{
-				Year:  fromYear,
+				Year:  frYear,
 				Month: monthIndex,
 			}
 			monthList = append(monthList, month)
@@ -268,7 +262,7 @@ func getMonthList(fromYear, fromMonth, toYear, toMonth int) (monthList []model.M
 		for monthIndex := 1; monthIndex <= 12; monthIndex++ {
 
 			month := model.Month{
-				Year:  fromYear + 1,
+				Year:  frYear + 1,
 				Month: monthIndex,
 			}
 			monthList = append(monthList, month)
@@ -284,4 +278,96 @@ func getMonthList(fromYear, fromMonth, toYear, toMonth int) (monthList []model.M
 		return
 	}
 	return
+}
+
+//http://localhost:3000/period?hash=testhash&code=testcode&from=2017-01&to=2018-01&type=testdoctype
+func periodWeather(w http.ResponseWriter, r *http.Request) {
+
+	md5 := r.URL.Query().Get("hash")
+	codeID := r.URL.Query().Get("code")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+	docType := r.URL.Query().Get("type")
+
+	if md5 == "" && codeID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if from == "" || to == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if docType == "csv" || docType == "xlsx" {
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+
+	}
+
+	monthList := getMonthList(from, to)
+
+	if len(monthList) < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if codeID == "" {
+
+		var err error
+
+		codeID, err = db.GetCodeIDByMD5(md5)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	db.GetWeatherResponse(w, r,codeID, docType, monthList)
+}
+
+//http://localhost:300/daydeg?hash=testhash&code=testcode&from=2017-01&to=2018-01
+func dayDegree(w http.ResponseWriter, r *http.Request) {
+
+	md5 := r.URL.Query().Get("hash")
+	codeID := r.URL.Query().Get("code")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+
+	if md5 == "" && codeID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if from == "" || to == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	monthList := getMonthList(from, to)
+
+	if len(monthList) < 1 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if codeID == "" {
+
+		var err error
+
+		codeID, err = db.GetCodeIDByMD5(md5)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	if dayDegreeList := db.GetMonthDayDegree(codeID, monthList); len(dayDegreeList) > 0 {
+		enc := json.NewEncoder(w)
+		enc.Encode(dayDegreeList)
+		w.Header().Set("Content-Type", "application/json")
+	}
 }

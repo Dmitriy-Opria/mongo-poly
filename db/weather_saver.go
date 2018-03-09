@@ -1,20 +1,21 @@
 package db
 
 import (
+	"bytes"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"github.com/tealeg/xlsx"
 	"golib/utils"
 	"gopkg.in/mgo.v2/bson"
 	"mongo-poly/model"
+	"net/http"
 	"strconv"
 	"time"
-	"net/http"
-	"bytes"
 )
 
 var (
-	tableHeader = []string {
+	tableHeader = []string{
 		"Date",
 		"Minimum temperature (°C)",
 		"Maximum temperature (°C)",
@@ -41,7 +42,7 @@ var (
 
 func GetWeatherResponse(w http.ResponseWriter, r *http.Request, codeID, format string, monthList []model.Month) {
 
-	weatherList:= getPeriodWeather(codeID, monthList)
+	weatherList := getPeriodWeather(codeID, monthList)
 
 	tm := time.Now().Unix()
 
@@ -59,12 +60,17 @@ func GetWeatherResponse(w http.ResponseWriter, r *http.Request, codeID, format s
 				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment;filename=%s_%d.xlsx", codeID, tm))
 				w.Write(xlsxCont.Bytes())
 			}
+		} else if format == "json" {
+			if jsonCont := GetJsonWeather(weatherList); jsonCont != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(jsonCont.Bytes())
+			}
 		}
 	}
 
 }
 
-func getPeriodWeather(codeID string, monthList []model.Month) ([]model.MonthWeather) {
+func getPeriodWeather(codeID string, monthList []model.Month) []model.MonthWeather {
 
 	db, def := getDatabase()
 	defer def()
@@ -92,7 +98,7 @@ func getPeriodWeather(codeID string, monthList []model.Month) ([]model.MonthWeat
 	return weatherList
 }
 
-func WriteCSVWeather( weatherList []model.MonthWeather) (csvCont *bytes.Buffer){
+func WriteCSVWeather(weatherList []model.MonthWeather) (csvCont *bytes.Buffer) {
 
 	records := [][]string{
 		tableHeader,
@@ -133,7 +139,6 @@ func WriteCSVWeather( weatherList []model.MonthWeather) (csvCont *bytes.Buffer){
 	b := &bytes.Buffer{}
 	wr := csv.NewWriter(b)
 
-
 	err := wr.WriteAll(records)
 
 	if err != nil {
@@ -143,7 +148,7 @@ func WriteCSVWeather( weatherList []model.MonthWeather) (csvCont *bytes.Buffer){
 	return b
 }
 
-func WriteXLSXWeather(weatherList []model.MonthWeather) (xlsxCont *bytes.Buffer){
+func WriteXLSXWeather(weatherList []model.MonthWeather) (xlsxCont *bytes.Buffer) {
 
 	file := xlsx.NewFile()
 
@@ -205,7 +210,6 @@ func WriteXLSXWeather(weatherList []model.MonthWeather) (xlsxCont *bytes.Buffer)
 		}
 	}
 
-
 	b := &bytes.Buffer{}
 	err = file.Write(b)
 	if err != nil {
@@ -258,5 +262,15 @@ func getMonthList(from, to time.Time) (monthList []model.Month) {
 		}
 	}
 
+	return
+}
+
+func GetJsonWeather(weatherList []model.MonthWeather) (jsonCont *bytes.Buffer) {
+
+	jsonCont = new(bytes.Buffer)
+
+	enc := json.NewEncoder(jsonCont)
+
+	enc.Encode(weatherList)
 	return
 }

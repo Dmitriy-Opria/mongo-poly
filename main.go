@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	//"gopkg.in/mgo.v2/bson"
+	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/iizotop/baseweb/utils"
 	"mongo-poly/config"
@@ -10,6 +11,7 @@ import (
 	"mongo-poly/model"
 	"mongo-poly/x_token"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -19,6 +21,17 @@ func main() {
 
 	conf := config.Get()
 	db.MongoInit(conf.Mongodb)
+
+	requestUrl, filePath := db.GetPath("2018", "", "11459", db.OZF)
+	fmt.Println(filePath, requestUrl)
+	if err := db.DownloadFile(filePath, requestUrl); err == nil {
+
+		for i, w := range db.ReadOZFWeatherFile(filePath, "11459") {
+
+			fmt.Printf("%d ==== %#v\n", i, w)
+		}
+	}
+	os.Exit(1)
 
 	/*monthWeather := db.FindFieldWeather("test", 2017, 1)
 
@@ -44,7 +57,7 @@ func main() {
 		fmt.Println(weatherList)
 	}*/
 
-	r.Post("/", kmlFinder)
+	r.Post("/", meteoPointFinder)
 	r.Get("/meteosave", meteoSaver)
 	r.Get("/period", periodWeather)
 	r.Get("/daydeg", dayDegree)
@@ -99,7 +112,7 @@ func main() {
 		db.FindPolygonInPolygon(poly)*/
 }
 
-func kmlFinder(w http.ResponseWriter, r *http.Request) {
+func meteoPointFinder(w http.ResponseWriter, r *http.Request) {
 
 	token := r.Header.Get("X-Token")
 
@@ -180,7 +193,6 @@ func meteoSaver(w http.ResponseWriter, r *http.Request) {
 }
 
 func getMonthList(from, to string) (monthList []model.Month) {
-
 
 	fr := strings.Split(from, "-")
 	t := strings.Split(to, "-")
@@ -299,11 +311,9 @@ func periodWeather(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if docType == "csv" || docType == "xlsx" {
-	} else {
+	if docType != "csv" && docType != "xlsx" && docType != "json" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
-
 	}
 
 	monthList := getMonthList(from, to)
@@ -325,7 +335,7 @@ func periodWeather(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	db.GetWeatherResponse(w, r,codeID, docType, monthList)
+	db.GetWeatherResponse(w, r, codeID, docType, monthList)
 }
 
 //http://localhost:300/daydeg?hash=testhash&code=testcode&from=2017-01&to=2018-01

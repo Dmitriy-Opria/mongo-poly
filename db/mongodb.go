@@ -217,14 +217,14 @@ func weatherIndex() {
 	meteoStations := db.C("weather")
 
 	key = mgo.Index{
-		Key:  []string{"codeID"},
+		Key: []string{"codeID"},
 	}
 	if err = meteoStations.EnsureIndex(key); err != nil {
 		fmt.Printf("weather(%q): %#v\n", strings.Join(key.Key, "_"), err)
 	}
 
 	key = mgo.Index{
-		Key:  []string{"month"},
+		Key: []string{"month"},
 	}
 	if err = meteoStations.EnsureIndex(key); err != nil {
 		fmt.Printf("weather(%q): %#v\n", strings.Join(key.Key, "_"), err)

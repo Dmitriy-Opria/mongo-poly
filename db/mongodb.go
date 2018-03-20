@@ -14,6 +14,13 @@ var (
 	mgoDBName  string = "test"
 )
 
+var (
+	collectionName = "geoKml_v1"
+	weatherCol     = "weather"
+	geoKmlCol      = "geoKml"
+	stationCol     = "meteoStations"
+)
+
 func MongoInit(mgoConfig config.MongodbConfig) {
 
 	userPassword := ""
@@ -214,7 +221,7 @@ func weatherIndex() {
 	var err error
 	var key mgo.Index
 
-	meteoStations := db.C("weather")
+	meteoStations := db.C(weatherCol)
 
 	key = mgo.Index{
 		Key: []string{"codeID"},

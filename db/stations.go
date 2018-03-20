@@ -10,6 +10,7 @@ import (
 	"os"
 )
 
+// Read file and return list of ,eteo stations
 func ReadCSV(fileName string) (meteoUnitList []model.MeteoUnit) {
 	file, err := os.OpenFile(fileName, os.O_RDONLY, 0644)
 
@@ -74,6 +75,7 @@ func ReadCSV(fileName string) (meteoUnitList []model.MeteoUnit) {
 	return
 }
 
+// Get MeteoList and insert its in "meteoStations" collection
 func InsertMeteo(meteoList []model.MeteoUnit) (err error) {
 
 	db, def := getDatabase()
@@ -90,6 +92,7 @@ func InsertMeteo(meteoList []model.MeteoUnit) (err error) {
 	return
 }
 
+//Find nearest meteo station by passint geoPoint
 func FindNearestStation(point model.Point) (meteo *model.MeteoUnit) {
 
 	db, def := getDatabase()
@@ -103,7 +106,7 @@ func FindNearestStation(point model.Point) (meteo *model.MeteoUnit) {
 		},
 	}
 
-	err := db.C("meteoStations").Find(query).One(&meteo)
+	err := db.C(stationCol).Find(query).One(&meteo)
 
 	if err != nil {
 		fmt.Println(err)
@@ -113,6 +116,7 @@ func FindNearestStation(point model.Point) (meteo *model.MeteoUnit) {
 	return
 }
 
+//Find all field in "geoKml" collection and set them nearest stations id
 func SetMeteoCode() {
 
 	db, def := getDatabase()
@@ -127,7 +131,7 @@ func SetMeteoCode() {
 		},
 	}
 
-	err := db.C("geoTile").Find(query).All(&results)
+	err := db.C(geoKmlCol).Find(query).All(&results)
 
 	if err != nil {
 		fmt.Printf("Can`t get all records from database, error: %s\n", err.Error())
@@ -135,11 +139,16 @@ func SetMeteoCode() {
 
 	for _, res := range results {
 
-		if centerPoint, err := res.Geometry.Center(); err == nil {
+		firstPoint := res.Geometry.Coordinates[0][0]
 
-			fmt.Println(centerPoint)
+		if len(firstPoint) > 0 {
 
-			if nearestMeteo := FindNearestStation(centerPoint); nearestMeteo != nil {
+			fieldPoint := model.Point{
+				Type:        "Point",
+				Coordinates: firstPoint[0],
+			}
+
+			if nearestMeteo := FindNearestStation(fieldPoint); nearestMeteo != nil {
 
 				fmt.Println(nearestMeteo)
 
@@ -147,7 +156,7 @@ func SetMeteoCode() {
 
 				if meteoCodeID != "" {
 
-					err := db.C("geoTile").Update(bson.M{
+					err := db.C(geoKmlCol).Update(bson.M{
 						"_id": res.ID,
 					},
 						bson.M{
@@ -162,6 +171,7 @@ func SetMeteoCode() {
 					}
 				}
 			}
+
 		}
 
 	}

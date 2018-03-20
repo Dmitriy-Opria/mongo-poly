@@ -40,27 +40,27 @@ var (
 	}
 )
 
-func GetWeatherResponse(w http.ResponseWriter, r *http.Request, codeID, format string, monthList []model.Month) {
+func GetWeatherResponse(w http.ResponseWriter, query model.WeatherQuery) {
 
-	weatherList := getPeriodWeather(codeID, monthList)
+	weatherList := getPeriodWeather(query.CodeID, query.MonthList)
 
 	tm := time.Now().Unix()
 
 	if len(weatherList) > 0 {
 
-		if format == "csv" {
+		if query.DocType == "csv" {
 			if csvCont := WriteCSVWeather(weatherList); csvCont != nil {
 				w.Header().Set("Content-Type", "text/csv")
-				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment;filename=%s_%d.csv", codeID, tm))
+				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment;filename=%s_%d.csv", query.CodeID, tm))
 				w.Write(csvCont.Bytes())
 			}
-		} else if format == "xlsx" {
+		} else if query.DocType == "xlsx" {
 			if xlsxCont := WriteXLSXWeather(weatherList); xlsxCont != nil {
 				w.Header().Set("Content-Type", "application/vnd.ms-excel")
-				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment;filename=%s_%d.xlsx", codeID, tm))
+				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment;filename=%s_%d.xlsx", query.CodeID, tm))
 				w.Write(xlsxCont.Bytes())
 			}
-		} else if format == "json" {
+		} else if query.DocType == "json" {
 			if jsonCont := GetJsonWeather(weatherList); jsonCont != nil {
 				w.Header().Set("Content-Type", "application/json")
 				w.Write(jsonCont.Bytes())
@@ -89,7 +89,7 @@ func getPeriodWeather(codeID string, monthList []model.Month) []model.MonthWeath
 			},
 		}
 
-		if err := db.C("weather").Find(weatherQuery).One(&monthWeather); err == nil {
+		if err := db.C(weatherCol).Find(weatherQuery).One(&monthWeather); err == nil {
 			weatherList = append(weatherList, monthWeather)
 		}
 
@@ -217,52 +217,6 @@ func WriteXLSXWeather(weatherList []model.MonthWeather) (xlsxCont *bytes.Buffer)
 		return
 	}
 	return b
-}
-
-func getMonthList(from, to time.Time) (monthList []model.Month) {
-
-	monthList = make([]model.Month, 0, 12)
-
-	month := model.Month{}
-
-	for y := from.Year(); y <= to.Year(); y++ {
-
-		fmt.Println(y)
-
-		if y != from.Year() && y != to.Year() {
-
-			for m := 1; m < 12; m++ {
-				month.Month = m
-				month.Year = y
-				monthList = append(monthList, month)
-			}
-
-		} else if y == from.Year() && y == to.Year() {
-			for m := int(from.Month()); m <= int(to.Month()); m++ {
-				month.Month = m
-				month.Year = y
-				monthList = append(monthList, month)
-			}
-
-		} else if y == from.Year() {
-
-			for m := int(from.Month()); m < 12; m++ {
-				month.Month = m
-				month.Year = from.Year()
-				monthList = append(monthList, month)
-			}
-
-		} else if y == to.Year() {
-
-			for m := int(1); m < int(to.Month()); m++ {
-				month.Month = m
-				month.Year = to.Year()
-				monthList = append(monthList, month)
-			}
-		}
-	}
-
-	return
 }
 
 func GetJsonWeather(weatherList []model.MonthWeather) (jsonCont *bytes.Buffer) {

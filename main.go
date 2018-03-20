@@ -2,18 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	//"gopkg.in/mgo.v2/bson"
-	"fmt"
 	"github.com/go-chi/chi"
-	"github.com/iizotop/baseweb/utils"
 	"mongo-poly/config"
 	"mongo-poly/db"
 	"mongo-poly/model"
 	"mongo-poly/x_token"
 	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 func main() {
@@ -22,16 +16,7 @@ func main() {
 	conf := config.Get()
 	db.MongoInit(conf.Mongodb)
 
-	requestUrl, filePath := db.GetPath("2018", "", "11459", db.OZF)
-	fmt.Println(filePath, requestUrl)
-	if err := db.DownloadFile(filePath, requestUrl); err == nil {
-
-		for i, w := range db.ReadOZFWeatherFile(filePath, "11459") {
-
-			fmt.Printf("%d ==== %#v\n", i, w)
-		}
-	}
-	os.Exit(1)
+	go db.UpdateWeatherData()
 
 	/*monthWeather := db.FindFieldWeather("test", 2017, 1)
 
@@ -58,8 +43,8 @@ func main() {
 	}*/
 
 	r.Post("/", meteoPointFinder)
-	r.Get("/meteosave", meteoSaver)
-	r.Get("/period", periodWeather)
+	//r.Get("/meteosave", meteoSaver)
+	r.Get("/period", weather)
 	r.Get("/daydeg", dayDegree)
 	http.ListenAndServe(":3000", r)
 
@@ -91,7 +76,7 @@ func main() {
 
 	//db.InsertPolygon(geoKml)
 
-	//db.SetMeteoCode()
+	db.SetMeteoCode()
 
 	/*if err := db.GetWeather(2017, 12); err != nil {
 
@@ -169,15 +154,18 @@ func meteoPointFinder(w http.ResponseWriter, r *http.Request) {
 }
 
 //	http://localhost:3000/meteosave?from=2016-01&to=2019-01
+/*
 func meteoSaver(w http.ResponseWriter, r *http.Request) {
 
-	/*
-		token := r.Header.Get("X-Token")
+*/
+/*
+	token := r.Header.Get("X-Token")
 
-		if !x_token.CheckValid(token) {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}*/
+	if !x_token.CheckValid(token) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}*/ /*
+
 
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
@@ -191,193 +179,54 @@ func meteoSaver(w http.ResponseWriter, r *http.Request) {
 
 	db.SaveRangeWeather(monthList)
 }
+*/
 
-func getMonthList(from, to string) (monthList []model.Month) {
+//http://localhost:3000/weather?hash=testhash&code=testcode&from=2017-01&to=2018-01&type=testdoctype
+func weather(w http.ResponseWriter, r *http.Request) {
 
-	fr := strings.Split(from, "-")
-	t := strings.Split(to, "-")
+	query, statusCode := model.GetRequestParams(r, model.WEATHER)
 
-	if len(fr) < 2 || len(t) < 2 {
-		return
-	}
+	if statusCode == 0 {
+		if query.CodeID == "" {
 
-	frYear := utils.ToInt(fr[0])
-	frMonth := utils.ToInt(fr[1])
-
-	toYear := utils.ToInt(t[0])
-	toMonth := utils.ToInt(t[1])
-
-	if frYear == 0 || frMonth == 0 || toYear == 0 || toMonth == 0 {
-		return
-	}
-
-	if toYear-frYear < 0 {
-		return
-	}
-
-	if toYear-frYear == 0 {
-		if toMonth-frMonth < 0 {
-			return
-		}
-	}
-
-	yearMin := time.Now().Year() - 2
-	yearMax := time.Now().Year()
-
-	if frYear < yearMin {
-		frYear = yearMin
-	}
-
-	if toYear > yearMax {
-		toYear = yearMax
-		toMonth = int(time.Now().Month())
-	}
-
-	switch toYear - frYear {
-	case 0:
-		for monthIndex := frMonth; monthIndex <= toMonth; monthIndex++ {
-
-			month := model.Month{
-				Year:  toYear,
-				Month: monthIndex,
+			var err error
+			query.CodeID, err = db.GetCodeIDByMD5(query.MD5)
+			if err != nil {
+				w.Write([]byte("ERR"))
+				w.WriteHeader(statusCode)
+				return
 			}
-			monthList = append(monthList, month)
 		}
-		return
-	case 1:
-		for monthIndex := frMonth; monthIndex <= 12; monthIndex++ {
-
-			month := model.Month{
-				Year:  frYear,
-				Month: monthIndex,
-			}
-			monthList = append(monthList, month)
-		}
-		for monthIndex := 1; monthIndex <= toMonth; monthIndex++ {
-
-			month := model.Month{
-				Year:  toYear,
-				Month: monthIndex,
-			}
-			monthList = append(monthList, month)
-		}
-		return
-	case 2:
-		for monthIndex := frMonth; monthIndex <= 12; monthIndex++ {
-
-			month := model.Month{
-				Year:  frYear,
-				Month: monthIndex,
-			}
-			monthList = append(monthList, month)
-		}
-		for monthIndex := 1; monthIndex <= 12; monthIndex++ {
-
-			month := model.Month{
-				Year:  frYear + 1,
-				Month: monthIndex,
-			}
-			monthList = append(monthList, month)
-		}
-		for monthIndex := 1; monthIndex <= toMonth; monthIndex++ {
-
-			month := model.Month{
-				Year:  toYear,
-				Month: monthIndex,
-			}
-			monthList = append(monthList, month)
-		}
-		return
+		db.GetWeatherResponse(w, *query)
+	} else {
+		w.Write([]byte("ERR"))
+		w.WriteHeader(statusCode)
 	}
-	return
-}
-
-//http://localhost:3000/period?hash=testhash&code=testcode&from=2017-01&to=2018-01&type=testdoctype
-func periodWeather(w http.ResponseWriter, r *http.Request) {
-
-	md5 := r.URL.Query().Get("hash")
-	codeID := r.URL.Query().Get("code")
-	from := r.URL.Query().Get("from")
-	to := r.URL.Query().Get("to")
-	docType := r.URL.Query().Get("type")
-
-	if md5 == "" && codeID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if from == "" || to == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if docType != "csv" && docType != "xlsx" && docType != "json" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	monthList := getMonthList(from, to)
-
-	if len(monthList) < 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if codeID == "" {
-
-		var err error
-
-		codeID, err = db.GetCodeIDByMD5(md5)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
-
-	db.GetWeatherResponse(w, r, codeID, docType, monthList)
 }
 
 //http://localhost:300/daydeg?hash=testhash&code=testcode&from=2017-01&to=2018-01
 func dayDegree(w http.ResponseWriter, r *http.Request) {
 
-	md5 := r.URL.Query().Get("hash")
-	codeID := r.URL.Query().Get("code")
-	from := r.URL.Query().Get("from")
-	to := r.URL.Query().Get("to")
+	query, statusCode := model.GetRequestParams(r, model.DAYDEGREE)
 
-	if md5 == "" && codeID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	if statusCode == 0 {
+		if query.CodeID == "" {
 
-	if from == "" || to == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	monthList := getMonthList(from, to)
-
-	if len(monthList) < 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if codeID == "" {
-
-		var err error
-
-		codeID, err = db.GetCodeIDByMD5(md5)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			var err error
+			query.CodeID, err = db.GetCodeIDByMD5(query.MD5)
+			if err != nil {
+				w.Write([]byte("ERR"))
+				w.WriteHeader(statusCode)
+				return
+			}
 		}
-	}
-
-	if dayDegreeList := db.GetMonthDayDegree(codeID, monthList); len(dayDegreeList) > 0 {
-		enc := json.NewEncoder(w)
-		enc.Encode(dayDegreeList)
-		w.Header().Set("Content-Type", "application/json")
+		if dayDegreeList := db.GetMonthDayDegree(*query); len(dayDegreeList) > 0 {
+			enc := json.NewEncoder(w)
+			enc.Encode(dayDegreeList)
+			w.Header().Set("Content-Type", "application/json")
+		}
+	} else {
+		w.Write([]byte("ERR"))
+		w.WriteHeader(statusCode)
 	}
 }
